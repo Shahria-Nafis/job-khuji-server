@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -6,11 +5,9 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// MongoDB URI
 const uri = "mongodb+srv://thehellodigital:TestTEst@hellodigital.nnevhra.mongodb.net/?appName=hellodigital";
 const client = new MongoClient(uri, {
   serverApi: {
@@ -20,13 +17,11 @@ const client = new MongoClient(uri, {
   }
 });
 
-// Global variables for collections
 let freelanceCollection;
 let acceptedTasksCollection;
 let applicationsCollection;
 let dbConnected = false;
 
-// Connect to MongoDB
 async function connectDB() {
   try {
     console.log('Attempting to connect to MongoDB...');
@@ -37,12 +32,11 @@ async function connectDB() {
     applicationsCollection = db.collection("applications");
     await client.db("admin").command({ ping: 1 });
     dbConnected = true;
-    console.log("✅ Pinged your deployment. You successfully connected to MongoDB!");
+    console.log(" Pinged your deployment. You successfully connected to MongoDB!");
   } catch (error) {
-    console.error('❌ Failed to connect to MongoDB:', error.message);
-    console.log('⚠️ Server will continue running. Retrying connection in 10 seconds...');
+    console.error(' Failed to connect to MongoDB:', error.message);
+    console.log('Server will continue running. Retrying connection in 10 seconds...');
     dbConnected = false;
-    // Retry connection after 10 seconds
     setTimeout(connectDB, 10000);
   }
 }
@@ -52,7 +46,6 @@ app.get('/', (req, res) => {
   res.send('Job-Khuiji is running');
 });
 
-// Add new job
 app.post('/freelance', async (req, res) => {
   console.log('POST /freelance hit!');
   try {
@@ -73,7 +66,6 @@ app.post('/freelance', async (req, res) => {
 
 console.log('Routes registered!');
 
-// Get all freelance jobs
 app.get('/freelance', async (req, res) => {
   try {
     if (!dbConnected) {
@@ -88,7 +80,6 @@ app.get('/freelance', async (req, res) => {
   }
 });
 
-    // Get single job by id (MUST come before /:email route)
 app.get('/freelance/job/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -101,7 +92,6 @@ app.get('/freelance/job/:id', async (req, res) => {
       }
     });
 
-    // Get jobs by user email
 app.get('/freelance/:email', async (req, res) => {
   try {
     const email = req.params.email;
@@ -114,7 +104,6 @@ app.get('/freelance/:email', async (req, res) => {
       }
     });
 
-    // Update a job (support both PATCH and PUT)
 app.patch('/freelance/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -161,7 +150,6 @@ app.put('/freelance/:id', async (req, res) => {
       }
     });
 
-    // Delete a job
 app.delete('/freelance/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -174,11 +162,7 @@ app.delete('/freelance/:id', async (req, res) => {
       }
     });
 
-    // ========================
-    // Accepted Tasks routes
-    // ========================
-
-    // Add new accepted task (যখন কেউ accept করবে)
+    
 app.post('/acceptedTasks', async (req, res) => {
   try {
     const newTask = req.body;
@@ -190,16 +174,10 @@ app.post('/acceptedTasks', async (req, res) => {
       }
     });
 
-    // ========================
-    // Applications routes
-    // ========================
-
-    // Submit an application for a job
     app.post('/applications', async (req, res) => {
       try {
         if (!dbConnected) return res.status(503).send({ error: 'Database not connected' });
         const appDoc = req.body;
-        // expected fields: jobId, applicantEmail, applicantName, message, appliedAt
         if (!appDoc.jobId || !appDoc.applicantEmail) {
           return res.status(400).send({ error: 'jobId and applicantEmail are required' });
         }
@@ -212,13 +190,11 @@ app.post('/acceptedTasks', async (req, res) => {
       }
     });
 
-    // Get applications for a job or by applicant
     app.get('/applications', async (req, res) => {
       try {
         if (!dbConnected) return res.status(503).send({ error: 'Database not connected' });
         const { jobId, applicantEmail, posterEmail } = req.query;
         
-        // If posterEmail is provided, get all applications for jobs posted by this user
         if (posterEmail) {
           const userJobs = await freelanceCollection.find({ userEmail: posterEmail }).toArray();
           const jobIds = userJobs.map(job => job._id.toString());
@@ -239,28 +215,24 @@ app.post('/acceptedTasks', async (req, res) => {
       }
     });
 
-    // Approve or reject an application (only job poster should do this)
     app.patch('/applications/:id', async (req, res) => {
       try {
         if (!dbConnected) return res.status(503).send({ error: 'Database not connected' });
         const id = req.params.id;
-        const { action, approverEmail } = req.body; // action: 'approve' | 'reject'
+        const { action, approverEmail } = req.body; 
         if (!action) return res.status(400).send({ error: 'action is required' });
 
         const appDoc = await applicationsCollection.findOne({ _id: new ObjectId(id) });
         if (!appDoc) return res.status(404).send({ error: 'Application not found' });
 
-        // fetch job to confirm ownership
         const job = await freelanceCollection.findOne({ _id: new ObjectId(appDoc.jobId) });
         if (!job) return res.status(404).send({ error: 'Job not found' });
 
-        // Basic ownership check: approverEmail must match job.userEmail
         if (!approverEmail || approverEmail !== job.userEmail) {
           return res.status(403).send({ error: 'Only the job poster can approve or reject applications' });
         }
 
         if (action === 'approve') {
-          // insert into acceptedTasks
           const acceptedTask = {
             jobId: appDoc.jobId,
             title: job.title,
@@ -273,7 +245,6 @@ app.post('/acceptedTasks', async (req, res) => {
             acceptedAt: new Date().toISOString(),
           };
           await acceptedTasksCollection.insertOne(acceptedTask);
-          // update application status
           const update = { $set: { status: 'approved', approvedAt: new Date().toISOString(), approvedBy: approverEmail } };
           const result = await applicationsCollection.updateOne({ _id: new ObjectId(id) }, update);
           return res.send({ result, acceptedTask });
@@ -292,7 +263,6 @@ app.post('/acceptedTasks', async (req, res) => {
       }
     });
 
-    // Delete an application (applicant or job poster)
     app.delete('/applications/:id', async (req, res) => {
       try {
         if (!dbConnected) return res.status(503).send({ error: 'Database not connected' });
@@ -305,7 +275,6 @@ app.post('/acceptedTasks', async (req, res) => {
       }
     });
 
-    // Get accepted tasks by user email
 app.get('/acceptedTasks', async (req, res) => {
   try {
     const userEmail = req.query.userEmail;
@@ -319,7 +288,6 @@ app.get('/acceptedTasks', async (req, res) => {
       }
     });
 
-    // Delete accepted task (for DONE or CANCEL)
 app.delete('/acceptedTasks/:id', async (req, res) => {
   try {
     const id = req.params.id;
@@ -332,11 +300,11 @@ app.delete('/acceptedTasks/:id', async (req, res) => {
   }
 });
 
-// Start server
 app.listen(port, () => {
   console.log(`🚀 Job-Khuiji backend running on port ${port}`);
   connectDB();
 });
+
 
 
 
