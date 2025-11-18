@@ -62,6 +62,22 @@ app.get("/freelance", async (req, res) => {
   }
 });
 
+
+
+app.get("/latest", async (req, res) => {
+  try {
+    const { freelance } = await getDB();
+    const result = await freelance.find().sort({ _id: -1 }).toArray(); // latest first
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
+  }
+});
+
+
+
+
+
 app.get("/freelance/job/:id", async (req, res) => {
   try {
     const { freelance } = await getDB();
@@ -249,5 +265,6 @@ app.delete("/acceptedTasks/:id", async (req, res) => {
 });
 
 export default app;
+
 
 
