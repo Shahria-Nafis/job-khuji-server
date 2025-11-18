@@ -1,10 +1,8 @@
-
-import express from 'express';
-import cors from 'cors';
-import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
+import express from "express";
+import cors from "cors";
+import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
@@ -15,36 +13,24 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
-let freelanceCollection;
-let acceptedTasksCollection;
-let applicationsCollection;
-let dbConnected = false;
-
-async function connectDB() {
-  try {
-    if (dbConnected) return;
-
+async function getDB() {
+  if (!client.topology || !client.topology.isConnected()) {
     await client.connect();
-    const db = client.db('hellodigital');
-
-    freelanceCollection = db.collection("freelance");
-    acceptedTasksCollection = db.collection("acceptedTasks");
-    applicationsCollection = db.collection("applications");
-
     await client.db("admin").command({ ping: 1 });
-
-    dbConnected = true;
     console.log("Connected to MongoDB");
-  } catch (error) {
-    console.error("MongoDB Connection Failed:", error.message);
   }
+
+  const db = client.db("hellodigital");
+
+  return {
+    freelance: db.collection("freelance"),
+    acceptedTasks: db.collection("acceptedTasks"),
+    applications: db.collection("applications"),
+  };
 }
-
-connectDB();
-
 
 app.get("/", (req, res) => {
   res.send("Job-Khuiji is running");
@@ -52,8 +38,8 @@ app.get("/", (req, res) => {
 
 app.post("/freelance", async (req, res) => {
   try {
-    if (!dbConnected) return res.status(503).send({ error: "DB not connected" });
-    const result = await freelanceCollection.insertOne(req.body);
+    const { freelance } = await getDB();
+    const result = await freelance.insertOne(req.body);
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to add job", details: error.message });
@@ -62,7 +48,8 @@ app.post("/freelance", async (req, res) => {
 
 app.get("/freelance", async (req, res) => {
   try {
-    const result = await freelanceCollection.find().toArray();
+    const { freelance } = await getDB();
+    const result = await freelance.find().toArray();
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
@@ -71,7 +58,8 @@ app.get("/freelance", async (req, res) => {
 
 app.get("/freelance/job/:id", async (req, res) => {
   try {
-    const job = await freelanceCollection.findOne({ _id: new ObjectId(req.params.id) });
+    const { freelance } = await getDB();
+    const job = await freelance.findOne({ _id: new ObjectId(req.params.id) });
     res.send(job);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch job" });
@@ -80,7 +68,8 @@ app.get("/freelance/job/:id", async (req, res) => {
 
 app.get("/freelance/:email", async (req, res) => {
   try {
-    const result = await freelanceCollection.find({ userEmail: req.params.email }).toArray();
+    const { freelance } = await getDB();
+    const result = await freelance.find({ userEmail: req.params.email }).toArray();
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch jobs" });
@@ -89,7 +78,8 @@ app.get("/freelance/:email", async (req, res) => {
 
 app.patch("/freelance/:id", async (req, res) => {
   try {
-    const result = await freelanceCollection.updateOne(
+    const { freelance } = await getDB();
+    const result = await freelance.updateOne(
       { _id: new ObjectId(req.params.id) },
       { $set: req.body }
     );
@@ -101,7 +91,8 @@ app.patch("/freelance/:id", async (req, res) => {
 
 app.put("/freelance/:id", async (req, res) => {
   try {
-    const result = await freelanceCollection.updateOne(
+    const { freelance } = await getDB();
+    const result = await freelance.updateOne(
       { _id: new ObjectId(req.params.id) },
       { $set: req.body }
     );
@@ -113,24 +104,25 @@ app.put("/freelance/:id", async (req, res) => {
 
 app.delete("/freelance/:id", async (req, res) => {
   try {
-    const result = await freelanceCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    const { freelance } = await getDB();
+    const result = await freelance.deleteOne({ _id: new ObjectId(req.params.id) });
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to delete job" });
   }
 });
 
-
 app.post("/applications", async (req, res) => {
   try {
     const data = req.body;
-    if (!data.jobId || !data.applicantEmail) {
-      return res.status(400).send({ error: "jobId & applicantEmail required" });
-    }
 
+    if (!data.jobId || !data.applicantEmail)
+      return res.status(400).send({ error: "jobId & applicantEmail required" });
+
+    const { applications } = await getDB();
     data.status = "pending";
 
-    const result = await applicationsCollection.insertOne(data);
+    const result = await applications.insertOne(data);
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to submit application" });
@@ -139,22 +131,22 @@ app.post("/applications", async (req, res) => {
 
 app.get("/applications", async (req, res) => {
   try {
+    const { freelance, applications } = await getDB();
     const { jobId, applicantEmail, posterEmail } = req.query;
 
   
     if (posterEmail) {
-      const jobs = await freelanceCollection.find({ userEmail: posterEmail }).toArray();
+      const jobs = await freelance.find({ userEmail: posterEmail }).toArray();
       const jobIds = jobs.map(j => j._id.toString());
-      const apps = await applicationsCollection.find({ jobId: { $in: jobIds } }).toArray();
+      const apps = await applications.find({ jobId: { $in: jobIds } }).toArray();
       return res.send(apps);
     }
 
-  
     const query = {};
     if (jobId) query.jobId = jobId;
     if (applicantEmail) query.applicantEmail = applicantEmail;
 
-    const result = await applicationsCollection.find(query).toArray();
+    const result = await applications.find(query).toArray();
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch applications" });
@@ -165,15 +157,16 @@ app.patch("/applications/:id", async (req, res) => {
   try {
     const { action, approverEmail } = req.body;
 
-    const appDoc = await applicationsCollection.findOne({ _id: new ObjectId(req.params.id) });
-    const job = await freelanceCollection.findOne({ _id: new ObjectId(appDoc.jobId) });
+    const { freelance, applications, acceptedTasks } = await getDB();
 
-    if (approverEmail !== job.userEmail) {
+    const appDoc = await applications.findOne({ _id: new ObjectId(req.params.id) });
+    const job = await freelance.findOne({ _id: new ObjectId(appDoc.jobId) });
+
+    if (approverEmail !== job.userEmail)
       return res.status(403).send({ error: "Not authorized" });
-    }
 
     if (action === "approve") {
-      await acceptedTasksCollection.insertOne({
+      await acceptedTasks.insertOne({
         jobId: appDoc.jobId,
         title: job.title,
         category: job.category,
@@ -185,20 +178,18 @@ app.patch("/applications/:id", async (req, res) => {
         acceptedAt: new Date(),
       });
 
-      const result = await applicationsCollection.updateOne(
+      const result = await applications.updateOne(
         { _id: new ObjectId(req.params.id) },
         { $set: { status: "approved" } }
       );
-
       return res.send(result);
     }
 
     if (action === "reject") {
-      const result = await applicationsCollection.updateOne(
+      const result = await applications.updateOne(
         { _id: new ObjectId(req.params.id) },
         { $set: { status: "rejected" } }
       );
-
       return res.send(result);
     }
 
@@ -211,17 +202,18 @@ app.patch("/applications/:id", async (req, res) => {
 
 app.delete("/applications/:id", async (req, res) => {
   try {
-    const result = await applicationsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    const { applications } = await getDB();
+    const result = await applications.deleteOne({ _id: new ObjectId(req.params.id) });
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to delete application" });
   }
 });
 
-
 app.get("/acceptedTasks", async (req, res) => {
   try {
-    const result = await acceptedTasksCollection.find({ userEmail: req.query.userEmail }).toArray();
+    const { acceptedTasks } = await getDB();
+    const result = await acceptedTasks.find({ userEmail: req.query.userEmail }).toArray();
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch tasks" });
@@ -230,12 +222,12 @@ app.get("/acceptedTasks", async (req, res) => {
 
 app.delete("/acceptedTasks/:id", async (req, res) => {
   try {
-    const result = await acceptedTasksCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    const { acceptedTasks } = await getDB();
+    const result = await acceptedTasks.deleteOne({ _id: new ObjectId(req.params.id) });
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to delete task" });
   }
 });
-
 
 export default app;
