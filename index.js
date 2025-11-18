@@ -49,21 +49,12 @@ app.post("/freelance", async (req, res) => {
 app.get("/freelance", async (req, res) => {
   try {
     const { freelance } = await getDB();
-    const result = await freelance.find().toArray();
-    res.send(result);
-  } catch (error) {
-    res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
-  }
-});
-
-app.get("/freelance", async (req, res) => {
-  try {
-    const { freelance } = await getDB();
     
+    // Latest jobs first, limit to 6
     const result = await freelance
       .find()
-      .sort({ _id: -1 })   
-      .limit(6)            
+      .sort({ _id: -1 })   // _id এর timestamp অনুযায়ী sort (recent first)
+      .limit(6)            // শুধু 6টা recent job দেখাবে
       .toArray();
     
     res.send(result);
@@ -72,6 +63,17 @@ app.get("/freelance", async (req, res) => {
   }
 });
 💡 Tip:
+
+app.get("/freelance", async (req, res) => {
+  try {
+    const { freelance } = await getDB();
+    const result = await freelance.find().toArray();
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
+  }
+});
+
 
 app.get("/freelance/:email", async (req, res) => {
   try {
@@ -238,4 +240,5 @@ app.delete("/acceptedTasks/:id", async (req, res) => {
 });
 
 export default app;
+
 
