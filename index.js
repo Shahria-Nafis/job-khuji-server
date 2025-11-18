@@ -56,15 +56,22 @@ app.get("/freelance", async (req, res) => {
   }
 });
 
-app.get("/freelance/job/:id", async (req, res) => {
+app.get("/freelance", async (req, res) => {
   try {
     const { freelance } = await getDB();
-    const job = await freelance.findOne({ _id: new ObjectId(req.params.id) });
-    res.send(job);
+    
+    const result = await freelance
+      .find()
+      .sort({ _id: -1 })   
+      .limit(6)            
+      .toArray();
+    
+    res.send(result);
   } catch (error) {
-    res.status(500).send({ error: "Failed to fetch job" });
+    res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
   }
 });
+💡 Tip:
 
 app.get("/freelance/:email", async (req, res) => {
   try {
@@ -231,3 +238,4 @@ app.delete("/acceptedTasks/:id", async (req, res) => {
 });
 
 export default app;
+
