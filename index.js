@@ -40,7 +40,12 @@ app.get("/", (req, res) => {
 app.post("/freelance", async (req, res) => {
   try {
     const { freelance } = await getDB();
-    const result = await freelance.insertOne(req.body);
+    // const result = await freelance.insertOne(req.body);
+    const result = await freelance
+      .find()
+      .sort({ _id: -1 })   // _id এর timestamp অনুযায়ী sort (recent first)
+      .limit(6)            // শুধু 6টা recent job দেখাবে
+      .toArray();
     res.send(result);
   } catch (error) {
     res
@@ -248,3 +253,4 @@ app.delete("/acceptedTasks/:id", async (req, res) => {
 });
 
 export default app;
+
