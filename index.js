@@ -6,7 +6,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const uri = "mongodb+srv://thehellodigital:TestTEst@hellodigital.nnevhra.mongodb.net/?appName=hellodigital";
+const uri =
+  "mongodb+srv://thehellodigital:TestTEst@hellodigital.nnevhra.mongodb.net/?appName=hellodigital";
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -42,27 +43,11 @@ app.post("/freelance", async (req, res) => {
     const result = await freelance.insertOne(req.body);
     res.send(result);
   } catch (error) {
-    res.status(500).send({ error: "Failed to add job", details: error.message });
+    res
+      .status(500)
+      .send({ error: "Failed to add job", details: error.message });
   }
 });
-
-app.get("/freelance", async (req, res) => {
-  try {
-    const { freelance } = await getDB();
-    
-    // Latest jobs first, limit to 6
-    const result = await freelance
-      .find()
-      .sort({ _id: -1 })   // _id এর timestamp অনুযায়ী sort (recent first)
-      .limit(6)            // শুধু 6টা recent job দেখাবে
-      .toArray();
-    
-    res.send(result);
-  } catch (error) {
-    res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
-  }
-});
-💡 Tip:
 
 app.get("/freelance", async (req, res) => {
   try {
@@ -70,15 +55,28 @@ app.get("/freelance", async (req, res) => {
     const result = await freelance.find().toArray();
     res.send(result);
   } catch (error) {
-    res.status(500).send({ error: "Failed to fetch jobs", details: error.message });
+    res
+      .status(500)
+      .send({ error: "Failed to fetch jobs", details: error.message });
   }
 });
 
+app.get("/freelance/job/:id", async (req, res) => {
+  try {
+    const { freelance } = await getDB();
+    const job = await freelance.findOne({ _id: new ObjectId(req.params.id) });
+    res.send(job);
+  } catch (error) {
+    res.status(500).send({ error: "Failed to fetch job" });
+  }
+});
 
 app.get("/freelance/:email", async (req, res) => {
   try {
     const { freelance } = await getDB();
-    const result = await freelance.find({ userEmail: req.params.email }).toArray();
+    const result = await freelance
+      .find({ userEmail: req.params.email })
+      .toArray();
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch jobs" });
@@ -114,7 +112,9 @@ app.put("/freelance/:id", async (req, res) => {
 app.delete("/freelance/:id", async (req, res) => {
   try {
     const { freelance } = await getDB();
-    const result = await freelance.deleteOne({ _id: new ObjectId(req.params.id) });
+    const result = await freelance.deleteOne({
+      _id: new ObjectId(req.params.id),
+    });
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to delete job" });
@@ -143,11 +143,12 @@ app.get("/applications", async (req, res) => {
     const { freelance, applications } = await getDB();
     const { jobId, applicantEmail, posterEmail } = req.query;
 
-  
     if (posterEmail) {
       const jobs = await freelance.find({ userEmail: posterEmail }).toArray();
-      const jobIds = jobs.map(j => j._id.toString());
-      const apps = await applications.find({ jobId: { $in: jobIds } }).toArray();
+      const jobIds = jobs.map((j) => j._id.toString());
+      const apps = await applications
+        .find({ jobId: { $in: jobIds } })
+        .toArray();
       return res.send(apps);
     }
 
@@ -168,7 +169,9 @@ app.patch("/applications/:id", async (req, res) => {
 
     const { freelance, applications, acceptedTasks } = await getDB();
 
-    const appDoc = await applications.findOne({ _id: new ObjectId(req.params.id) });
+    const appDoc = await applications.findOne({
+      _id: new ObjectId(req.params.id),
+    });
     const job = await freelance.findOne({ _id: new ObjectId(appDoc.jobId) });
 
     if (approverEmail !== job.userEmail)
@@ -203,7 +206,6 @@ app.patch("/applications/:id", async (req, res) => {
     }
 
     res.status(400).send({ error: "Invalid action" });
-
   } catch (error) {
     res.status(500).send({ error: "Failed to update application" });
   }
@@ -212,7 +214,9 @@ app.patch("/applications/:id", async (req, res) => {
 app.delete("/applications/:id", async (req, res) => {
   try {
     const { applications } = await getDB();
-    const result = await applications.deleteOne({ _id: new ObjectId(req.params.id) });
+    const result = await applications.deleteOne({
+      _id: new ObjectId(req.params.id),
+    });
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to delete application" });
@@ -222,7 +226,9 @@ app.delete("/applications/:id", async (req, res) => {
 app.get("/acceptedTasks", async (req, res) => {
   try {
     const { acceptedTasks } = await getDB();
-    const result = await acceptedTasks.find({ userEmail: req.query.userEmail }).toArray();
+    const result = await acceptedTasks
+      .find({ userEmail: req.query.userEmail })
+      .toArray();
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to fetch tasks" });
@@ -232,7 +238,9 @@ app.get("/acceptedTasks", async (req, res) => {
 app.delete("/acceptedTasks/:id", async (req, res) => {
   try {
     const { acceptedTasks } = await getDB();
-    const result = await acceptedTasks.deleteOne({ _id: new ObjectId(req.params.id) });
+    const result = await acceptedTasks.deleteOne({
+      _id: new ObjectId(req.params.id),
+    });
     res.send(result);
   } catch (error) {
     res.status(500).send({ error: "Failed to delete task" });
@@ -240,5 +248,3 @@ app.delete("/acceptedTasks/:id", async (req, res) => {
 });
 
 export default app;
-
-
