@@ -1,13 +1,35 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true }));
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "dmz9jzdtm",
+  api_key: process.env.CLOUDINARY_API_KEY || "341419547174899",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "j3Hh1VJzhwp3O6ReU9cZxDpK5Es",
+  secure: true,
+});
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
+// MongoDB connection URI (use env, fallback to provided connection string)
 const uri =
-  "mongodb+srv://thehellodigital:TestTEst@hellodigital.nnevhra.mongodb.net/?appName=hellodigital";
+  process.env.MONGODB_URI ||
+  "mongodb+srv://thehellodigital:Arafat111@hellodigital.nnevhra.mongodb.net/?appName=hellodigital";
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -35,6 +57,36 @@ async function getDB() {
 
 app.get("/", (req, res) => {
   res.send("Job-Khuiji is running");
+});
+
+app.post("/upload", upload.single("file"), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).send({ error: "No file provided" });
+  }
+
+  try {
+    const result = await new Promise((resolve, reject) => {
+      cloudinary.uploader
+        .upload_stream(
+          { folder: "job-khuji", resource_type: "image" },
+          (error, uploaded) => {
+            if (error) return reject(error);
+            return resolve(uploaded);
+          }
+        )
+        .end(req.file.buffer);
+    });
+
+    return res.send({
+      url: result.secure_url,
+      public_id: result.public_id,
+    });
+  } catch (error) {
+    console.error("Cloudinary upload failed", error);
+    return res
+      .status(500)
+      .send({ error: "Failed to upload image", details: error.message });
+  }
 });
 
 app.post("/freelance", async (req, res) => {
@@ -262,6 +314,12 @@ app.delete("/acceptedTasks/:id", async (req, res) => {
   } catch (error) {
     res.status(500).send({ error: "Failed to delete task" });
   }
+});
+
+const port = process.env.PORT || 5000;
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
 
 export default app;
